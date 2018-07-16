@@ -1,0 +1,26 @@
+---
+
+- name: VMWare Extensions
+  hosts: localhost
+
+  vars:
+    vm_name: vm1
+    vm_ipv4: 192.168.1.7
+
+  tasks:
+    - name: Delete Network Interface
+      vmware_guest_nic:
+        hostname: "{{ vc_hostname }}" 
+        username: "{{ vc_username }}"
+        password: "{{ vc_password }}"
+        validate_certs: False
+        name: "{{ vm_name }}"
+        ipv4: "{{ vm_ipv4 }}"
+        state: present
+        network: "VM Network"
+        netmask: "255.255.0.0"
+        gateway: "192.168.1.1"
+      register: vm_nic_facts
+
+    - name: Show NIC Facts
+      debug: var=vm_nic_facts
