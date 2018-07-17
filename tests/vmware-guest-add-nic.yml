@@ -8,7 +8,7 @@
     vm_ipv4: 192.168.1.7
 
   tasks:
-    - name: Delete Network Interface
+    - name: Add Network Interface
       vmware_guest_nic:
         hostname: "{{ vc_hostname }}" 
         username: "{{ vc_username }}"
@@ -22,5 +22,9 @@
         gateway: "192.168.1.1"
       register: vm_nic_facts
 
-    - name: Show NIC Facts
-      debug: var=vm_nic_facts
+    - name: Get new MAC Address
+      set_fact:
+        macAddress: "{{ vm_nic_facts.msg.macAddress }}"
+
+    - name: New MAC Address
+      debug: var=macAddress
