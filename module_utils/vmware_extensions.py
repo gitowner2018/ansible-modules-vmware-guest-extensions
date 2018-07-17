@@ -32,18 +32,18 @@ class AnsibleVMWareGuestNic( object ):
 
     # Backward compatible with former get_obj() function
     if name is None:
-        if obj_list:
-            return obj_list[0]
-        return None
+      if obj_list:
+        return obj_list[0]
+      return None
 
     # Select the first match
     if first is True:
-        for obj in obj_list:
-            if obj.name == name:
-                return obj
+      for obj in obj_list:
+        if obj.name == name:
+          return obj
 
-        # If no object found, return None
-        return None
+      # If no object found, return None
+      return None
 
     # Return all matching objects if needed
     return [obj for obj in obj_list if obj.name == name]
@@ -51,47 +51,48 @@ class AnsibleVMWareGuestNic( object ):
 
   def wait_for_tasks( self , service_instance, tasks ):
       
-      property_collector = service_instance.content.propertyCollector
-      task_list = [str(task) for task in tasks]
-      # Create filter
-      obj_specs = [vmodl.query.PropertyCollector.ObjectSpec(obj=task)
-                   for task in tasks]
-      property_spec = vmodl.query.PropertyCollector.PropertySpec(type=vim.Task,
-                                                                 pathSet=[],
-                                                                 all=True)
-      filter_spec = vmodl.query.PropertyCollector.FilterSpec()
-      filter_spec.objectSet = obj_specs
-      filter_spec.propSet = [property_spec]
-      pcfilter = property_collector.CreateFilter(filter_spec, True)
-      try:
-          version, state = None, None
-          # Loop looking for updates till the state moves to a completed state.
-          while len(task_list):
-              update = property_collector.WaitForUpdates(version)
-              for filter_set in update.filterSet:
-                  for obj_set in filter_set.objectSet:
-                      task = obj_set.obj
-                      for change in obj_set.changeSet:
-                          if change.name == 'info':
-                              state = change.val.state
-                          elif change.name == 'info.state':
-                              state = change.val
-                          else:
-                              continue
+    property_collector = service_instance.content.propertyCollector
+    task_list = [str(task) for task in tasks]
+
+    # Create filter
+    obj_specs = [vmodl.query.PropertyCollector.ObjectSpec(obj=task) for task in tasks]
+    property_spec = vmodl.query.PropertyCollector.PropertySpec(type=vim.Task , pathSet=[] , all=True)
+
+    filter_spec = vmodl.query.PropertyCollector.FilterSpec()
+    filter_spec.objectSet = obj_specs
+    filter_spec.propSet = [property_spec]
+
+    pcfilter = property_collector.CreateFilter(filter_spec, True)
+
+    try:
+      version, state = None, None
+      # Loop looking for updates till the state moves to a completed state.
+      while len(task_list):
+        update = property_collector.WaitForUpdates(version)
+        for filter_set in update.filterSet:
+          for obj_set in filter_set.objectSet:
+            task = obj_set.obj
+            for change in obj_set.changeSet:
+              if change.name == 'info':
+                state = change.val.state
+              elif change.name == 'info.state':
+                state = change.val
+              else:
+                continue
   
-                          if not str(task) in task_list:
-                              continue
+              if not str(task) in task_list:
+                continue
   
-                          if state == vim.TaskInfo.State.success:
-                              # Remove task from taskList
-                              task_list.remove(str(task))
-                          elif state == vim.TaskInfo.State.error:
-                              raise task.info.error
-              # Move to next version
-              version = update.version
-      finally:
-          if pcfilter:
-              pcfilter.Destroy()
+              if state == vim.TaskInfo.State.success:
+                # Remove task from taskList
+                task_list.remove(str(task))
+              elif state == vim.TaskInfo.State.error:
+                raise task.info.error
+        # Move to next version
+        version = update.version
+    finally:
+      if pcfilter:
+        pcfilter.Destroy()
 
 
   def getVirtualMachineNicCount( self , vm ):
@@ -143,7 +144,7 @@ class AnsibleVMWareGuestNic( object ):
 
     # IPv4 Address via MAC Address
     for ipv4 in vm.guest.net:
-      if str(ipv4.ipAddress[0]) == self.modules.params['ipv4']:
+      if str(ipv4.ipAddress[0]) == self.module.params['ipv4']:
         facts['macAddress'] = ipv4.macAddress
         facts['ipv4'] = str(ipv4.ipAddress[0])
         facts['ipv6'] = str(ipv4.ipAddress[1])
@@ -160,22 +161,22 @@ class AnsibleVMWareGuestNic( object ):
     return facts
  
 
-  def gatherNicFacts( self , vm , ip ):
-    facts = getVirtualMachineNicFacts( vm , ip )
+  def gatherNicFacts( self , vm ):
+    facts = getVirtualMachineNicFacts( vm )
     self.module.exit_json( msg=facts )
 
 
-  def deleteVirtualNic( self , vm , ip ):
+  def deleteVirtualNic( self , vm ):
      
     nic_count = self.getVirtualMachineNicCount( vm )
 
     if nic_count == 1:
       self.result['changed'] = False
-      self.module.fail_json( msg='There is only 1 Network Interface attached to this Virtual Machine. So, we wont be deleting it. #SorryNotSorry' )
+      self.module.fail_json( msg='There is only 1 Network Interface attached to this Virtual Machine. So, we wont be deleting it.' )
 
     nic = None
     
-    nic_facts = self.getVirtualMachineNicFacts( vm , self.module.params['ipv4'] )
+    nic_facts = self.getVirtualMachineNicFacts( vm )
     nic_label = nic_facts['label']
 
     for dev in vm.config.hardware.device:
@@ -238,13 +239,13 @@ class AnsibleVMWareGuestNic( object ):
     configSpec.deviceChange = nicSpecProperties
 
     # Add the NIC and wait for the task to complete in vCenter
-    macPreSnapshot = getMacAddressList( vm )
+    macPreSnapshot = self.getMacAddressList( vm )
     task = vm.ReconfigVM_Task(spec=configSpec)
     self.wait_for_tasks(self.service_instance, [task])
 
     response = {}
-    macPostSnapshot = getMacAddressList( vm )
-    newMacAddress = getDifference( macPreSnapshot , macPostSnapshot )
+    macPostSnapshot = self.getMacAddressList( vm )
+    newMacAddress = self.getDifference( macPostSnapshot , macPreSnapshot )
     response['macAddress'] = newMacAddress
     
     self.result['msg'] = response

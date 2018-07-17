@@ -43,7 +43,7 @@ def main():
     if vm:
         try:
             if module.params['state'] == 'absent':
-              vmware.deleteVirtualNic( vm , module.params['ipv4'] )
+              vmware.deleteVirtualNic( vm )
             else:
               vmware.createVirtualNic( vm )
         except Exception as exc:
